@@ -1,5 +1,6 @@
 name: Auto Per-File & Folder Descriptions
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
@@ -36,7 +37,6 @@ jobs:
           if not py_files:
               exit(0)
 
-          # 1. Update root FILE_INDEX.md (quick overview table)
           all_code = ""
           folders = defaultdict(list)
           for f in py_files:
@@ -55,7 +55,6 @@ jobs:
           with open("FILE_INDEX.md", "w", encoding="utf-8") as out:
               out.write("# Repository File Index\n\n" + ask_gemini(index_prompt) + "\n")
 
-          # 2. Generate detailed README.md inside each subfolder
           for folder, files in folders.items():
               folder_bundle = ""
               for fname, content in files:
@@ -79,6 +78,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add FILE_INDEX.md "**/README.md"
+          git add -A
           git diff --staged --quiet || git commit -m "docs: update file index and folder READMEs"
           git push
