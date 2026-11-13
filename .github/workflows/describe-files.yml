@@ -25,7 +25,7 @@ jobs:
           import os, glob, json, time, urllib.request, urllib.error
           from collections import defaultdict
 
-          api_key = os.environ.get("GEMINI_API_KEY", "").strip().strip('"').strip("'")
+          api_key = os.environ.get("GEMINI_API_KEY", "").strip().strip('"').strip("'").lstrip("\\")
           if not api_key:
               print("ERROR: GEMINI_API_KEY secret is empty.")
               exit(1)
