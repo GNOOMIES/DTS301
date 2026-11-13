@@ -2,4 +2,4 @@
 
 | File | Description |
 | :--- | :--- |
-| `week-01-python/workshop1.py` | Contains a collection of introductory Python programming exercises, including loops, functions, temperature conversion, a Caesar cipher, and a word-guessing game. |
+| `workshop1.py` | Implements an interactive menu-driven script featuring various basic Python tasks, including loops, functions, temperature conversions, a Caesar cipher, and a text-based Hangman game. |
