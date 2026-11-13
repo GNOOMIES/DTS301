@@ -1,4 +1,5 @@
 name: Auto Per-File & Folder Descriptions
+
 on:
   workflow_dispatch:
   push:
@@ -13,86 +14,97 @@ jobs:
   document-files:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v5
 
       - name: Generate Root Index and Folder READMEs
         env:
           GEMINI_API_KEY: \${{ secrets.GEMINI_API_KEY }}
         run: |
           python3 - << 'EOF'
-          import os, glob, json, urllib.request
+          import os, glob, json, time, urllib.request, urllib.error
           from collections import defaultdict
 
-          api_key = os.environ.get('GEMINI_API_KEY', '').strip()
+          api_key = os.environ.get("GEMINI_API_KEY", "").strip().strip('"').strip("'")
           if not api_key:
-              print("❌ ERROR: GEMINI_API_KEY is empty. The GitHub Secret is not being passed to the runner.")
+              print("ERROR: GEMINI_API_KEY secret is empty.")
               exit(1)
 
           def ask_gemini(prompt):
-              url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+              url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent"
+              payload = json.dumps({
+                  "contents": [{"parts": [{"text": prompt}]}]
+              }).encode("utf-8")
               req = urllib.request.Request(
                   url,
-                  data=json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode(),
-                  headers={"Content-Type": "application/json"}
+                  data=payload,
+                  headers={
+                      "Content-Type": "application/json",
+                      "x-goog-api-key": api_key
+                  },
+                  method="POST"
               )
               try:
-                  with urllib.request.urlopen(req) as res:
-                      return json.loads(res.read().decode())["candidates"][0]["content"]["parts"][0]["text"]
+                  with urllib.request.urlopen(req, timeout=60) as res:
+                      body = json.loads(res.read().decode("utf-8"))
+                      return body["candidates"][0]["content"]["parts"][0]["text"].strip()
               except urllib.error.HTTPError as e:
-                  print(f"❌ GOOGLE API ERROR ({e.code}):", e.read().decode('utf-8'))
-                  raise e
+                  print(f"GOOGLE API ERROR ({e.code}):", e.read().decode("utf-8"))
+                  raise
 
           py_files = sorted(glob.glob("**/*.py", recursive=True))
           if not py_files:
-              print("No Python files found. Exiting cleanly.")
+              print("No Python files found.")
               exit(0)
-
-          print(f"Found {len(py_files)} Python files. Generating index...")
 
           all_code = ""
           folders = defaultdict(list)
           for f in py_files:
               with open(f, "r", encoding="utf-8", errors="ignore") as fp:
-                  content = fp.read()[:6000]
+                  content = fp.read()[:8000]
               all_code += f"\n--- FILE: {f} ---\n{content}\n"
               folder = os.path.dirname(f)
               if folder:
                   folders[folder].append((os.path.basename(f), content))
 
+          print("Generating root FILE_INDEX.md...")
           index_prompt = (
               "Create a clean Markdown table with columns 'File' and 'Description' "
-              "summarizing what each Python script does in 1-2 sentences:\n"
+              "summarizing what each Python script does in 1-2 sentences. "
+              "Return only the Markdown table:\n"
               + all_code
           )
           with open("FILE_INDEX.md", "w", encoding="utf-8") as out:
               out.write("# Repository File Index\n\n" + ask_gemini(index_prompt) + "\n")
 
           for folder, files in folders.items():
-              print(f"Generating README for {folder}...")
+              time.sleep(2)
+              print(f"Generating detailed README.md for {folder}...")
               folder_bundle = ""
               for fname, content in files:
                   folder_bundle += f"\n--- FILE: {fname} ---\n{content}\n"
 
               folder_prompt = (
-                  f"Write a thorough, well-structured Markdown README for the folder '{folder}'. "
+                  f"Write a comprehensive, in-depth Markdown README for the university coursework folder '{folder}'. "
                   "Include:\n"
-                  "1. A high-level overview of the topic/module.\n"
-                  "2. A detailed section for each Python file explaining every function, task, or class, "
-                  "how the logic/algorithms work, and key programming/AI concepts demonstrated.\n"
-                  "3. A brief 'How to Run' section.\n"
-                  "Return clean Markdown only (no wrapping ```markdown fences):\n"
+                  "1. High-level overview of the workshop/week.\n"
+                  "2. A detailed breakdown of each Python file and every function/task inside it "
+                  "(explaining the logic, inputs/outputs, algorithms, and programming concepts used).\n"
+                  "3. Brief instructions on how to run the script.\n"
+                  "Do not wrap the response in ```markdown code fences:\n"
                   + folder_bundle
               )
-              with open(os.path.join(folder, "README.md"), "w", encoding="utf-8") as out:
+              readme_path = os.path.join(folder, "README.md")
+              with open(readme_path, "w", encoding="utf-8") as out:
                   out.write(ask_gemini(folder_prompt) + "\n")
-          
-          print("✅ All docs generated successfully.")
+
+          print("Documentation generation complete.")
           EOF
 
-      - name: Commit Updated Docs
+      - name: Commit and Push Updated Docs
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
+          git add FILE_INDEX.md "*/README.md"
           git diff --staged --quiet || git commit -m "docs: update file index and folder READMEs"
           git push
