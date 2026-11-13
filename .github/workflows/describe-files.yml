@@ -30,18 +30,17 @@ jobs:
               print("ERROR: GEMINI_API_KEY secret is empty.")
               exit(1)
 
+          print(f"Key check -> length: {len(api_key)}, prefix: {api_key[:3]}")
+
           def ask_gemini(prompt):
-              url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent"
+              url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key={api_key}"
               payload = json.dumps({
                   "contents": [{"parts": [{"text": prompt}]}]
               }).encode("utf-8")
               req = urllib.request.Request(
                   url,
                   data=payload,
-                  headers={
-                      "Content-Type": "application/json",
-                      "x-goog-api-key": api_key
-                  },
+                  headers={"Content-Type": "application/json"},
                   method="POST"
               )
               try:
