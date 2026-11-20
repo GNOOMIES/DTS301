@@ -1,0 +1,14 @@
+# Notebooks (for .ipynb lab sheets)
+jupyter
+ipykernel
+
+# Core AI / Data Science & ML stack
+numpy
+pandas
+matplotlib
+scikit-learn
+seaborn
+networkx
+
+# Code formatting (matches VS Code auto-format setup)
+black
